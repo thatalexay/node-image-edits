@@ -1,7 +1,7 @@
 {
-  "name": "image-edits",
-  "version": "1.0.0",
-  "description": "This project was bootstrapped with Fastify-CLI.",
+  "name": "node-image-editing",
+  "version": "0.1.0",
+  "description": "Phase 1 image operations service (resize, crop, remove background) designed for always-on Node.js deployment",
   "main": "app.js",
   "directories": {
     "test": "test"
@@ -9,17 +9,38 @@
   "scripts": {
     "test": "node --test test/**/*.test.js",
     "start": "fastify start -l info app.js",
-    "dev": "fastify start -w -l info -P app.js"
+    "dev": "fastify start -w -l info -P app.js",
+    "download-models": "node scripts/download-models.js",
+    "postinstall": "npm run download-models"
   },
-  "keywords": [],
+  "keywords": [
+    "image-processing",
+    "resize",
+    "crop",
+    "background-removal"
+  ],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "fastify": "^5.0.0",
-    "fastify-plugin": "^5.0.0",
-    "@fastify/autoload": "^6.0.0",
-    "@fastify/sensible": "^6.0.0",
-    "fastify-cli": "^7.4.1"
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/node-image-editing"
   },
-  "devDependencies": {}
+  "dependencies": {
+    "@fastify/autoload": "^6.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/env": "^5.0.0",
+    "@fastify/helmet": "^12.0.0",
+    "@fastify/multipart": "^9.0.0",
+    "@fastify/rate-limit": "^10.0.0",
+    "@fastify/sensible": "^6.0.0",
+    "@imgly/background-removal-node": "^1.4.5",
+    "dotenv": "^16.4.0",
+    "fastify": "^5.0.0",
+    "fastify-cli": "^7.4.1",
+    "fastify-plugin": "^5.0.0",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "form-data": "^4.0.5"
+  }
 }

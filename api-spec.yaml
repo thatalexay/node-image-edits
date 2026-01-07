@@ -1,0 +1,405 @@
+openapi: 3.1.0
+info:
+  title: node-image-editing API
+  version: 1.0.0
+  description: >
+    Phase 1 image operations service (resize, crop, remove background).
+    Designed for an always-on Node.js deployment (e.g., Render Web Service).
+    This service is intended to be open sourced under AGPL-3.0-or-later; the running
+    source code location is discoverable via /source and the X-Source-Code header.
+  license:
+    name: AGPL-3.0-or-later
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: node-image-editing.onrender.com
+
+tags:
+  - name: meta
+  - name: image
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  headers:
+    XSourceCode:
+      description: URL to the running service's source code repository (AGPL compliance aid).
+      schema:
+        type: string
+        format: uri
+    XRequestId:
+      description: Correlation id echoed back if provided by the client.
+      schema:
+        type: string
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [INVALID_INPUT, UNSUPPORTED_MEDIA_TYPE, PAYLOAD_TOO_LARGE, UNAUTHORIZED, RATE_LIMITED, INTERNAL]
+            message:
+              type: string
+
+    SourceInfo:
+      type: object
+      required: [name, version, source, license]
+      properties:
+        name:
+          type: string
+          example: node-image-editing
+        version:
+          type: string
+          example: 1.0.0
+        commit:
+          type: string
+          description: Optional git commit SHA for the deployed build.
+          example: abc1234
+        source:
+          type: string
+          format: uri
+          example: https://github.com/your-org/node-image-editing
+        license:
+          type: string
+          example: AGPL-3.0-or-later
+
+    Health:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    ResizeFit:
+      type: string
+      enum: [cover, contain, fill, inside, outside]
+    OutputFormat:
+      type: string
+      enum: [png, jpeg, webp]
+
+    RemoveBgOutput:
+      type: string
+      enum: [image, mask]
+
+  responses:
+    BadRequest:
+      description: Invalid input.
+      headers:
+        X-Source-Code:
+          $ref: "#/components/headers/XSourceCode"
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid API key.
+      headers:
+        X-Source-Code:
+          $ref: "#/components/headers/XSourceCode"
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    PayloadTooLarge:
+      description: Upload too large.
+      headers:
+        X-Source-Code:
+          $ref: "#/components/headers/XSourceCode"
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UnsupportedMediaType:
+      description: Unsupported media type.
+      headers:
+        X-Source-Code:
+          $ref: "#/components/headers/XSourceCode"
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Too many requests.
+      headers:
+        X-Source-Code:
+          $ref: "#/components/headers/XSourceCode"
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [meta]
+      summary: Health check
+      security: [] # allow unauthenticated health checks
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Source-Code:
+              $ref: "#/components/headers/XSourceCode"
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /source:
+    get:
+      tags: [meta]
+      summary: Source disclosure (AGPL)
+      description: Returns the source repository URL (and optional commit SHA) for the running service.
+      security: [] # allow unauthenticated source discovery
+      responses:
+        "200":
+          description: Source information
+          headers:
+            X-Source-Code:
+              $ref: "#/components/headers/XSourceCode"
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceInfo"
+
+  /v1/resize:
+    post:
+      tags: [image]
+      summary: Resize an image
+      description: >
+        Resizes an image. If only one of width/height is provided, aspect ratio is preserved.
+        Defaults to fit=inside and output format = input format.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                width:
+                  type: integer
+                  minimum: 1
+                  description: Target width in pixels.
+                height:
+                  type: integer
+                  minimum: 1
+                  description: Target height in pixels.
+                fit:
+                  $ref: "#/components/schemas/ResizeFit"
+                format:
+                  $ref: "#/components/schemas/OutputFormat"
+                quality:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  description: JPEG/WebP quality.
+                background:
+                  type: string
+                  description: Background color hex (e.g. #ffffff) used for formats without alpha when needed.
+                  pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+      responses:
+        "200":
+          description: Resized image (binary)
+          headers:
+            X-Source-Code:
+              $ref: "#/components/headers/XSourceCode"
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/crop:
+    post:
+      tags: [image]
+      summary: Crop an image
+      description: >
+        Crops an image using either a rectangle (x,y,width,height) or an aspect ratio (aspect, gravity).
+        If both are provided, rectangle crop takes precedence.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+
+                # Rect crop
+                x:
+                  type: integer
+                  minimum: 0
+                y:
+                  type: integer
+                  minimum: 0
+                width:
+                  type: integer
+                  minimum: 1
+                height:
+                  type: integer
+                  minimum: 1
+
+                # Aspect crop
+                aspect:
+                  type: string
+                  description: Aspect ratio like "1:1", "4:5", "16:9".
+                  pattern: "^[0-9]+:[0-9]+$"
+                gravity:
+                  type: string
+                  enum: [center, north, south, east, west]
+                  default: center
+
+                # Output
+                format:
+                  $ref: "#/components/schemas/OutputFormat"
+                quality:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+      responses:
+        "200":
+          description: Cropped image (binary)
+          headers:
+            X-Source-Code:
+              $ref: "#/components/headers/XSourceCode"
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/remove-bg:
+    post:
+      tags: [image]
+      summary: Remove image background
+      description: >
+        Removes the background and returns either (a) a cutout image with transparency or
+        (b) a grayscale mask. Default output is a PNG cutout.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                output:
+                  $ref: "#/components/schemas/RemoveBgOutput"
+                format:
+                  $ref: "#/components/schemas/OutputFormat"
+                feather:
+                  type: number
+                  minimum: 0
+                  maximum: 10
+                  description: Optional edge feathering amount applied in postprocess.
+                threshold:
+                  type: integer
+                  minimum: 0
+                  maximum: 255
+                  description: Optional mask threshold cutoff applied in postprocess.
+      responses:
+        "200":
+          description: Background-removed output (binary)
+          headers:
+            X-Source-Code:
+              $ref: "#/components/headers/XSourceCode"
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/RateLimited"
