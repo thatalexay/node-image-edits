@@ -1,7 +1,6 @@
 'use strict'
 
 const sharp = require('sharp')
-const path = require('path')
 const { removeBackground } = require('@imgly/background-removal-node')
 
 /**
@@ -10,17 +9,10 @@ const { removeBackground } = require('@imgly/background-removal-node')
  */
 class ImageService {
   constructor() {
-    // Configure background removal to use local models if available
-    this.bgRemovalConfig = {}
-
-    const modelPath = process.env.BG_REMOVAL_MODEL_PATH
-    if (modelPath) {
-      this.bgRemovalConfig = {
-        publicPath: path.resolve(modelPath),
-        model: 'isnet', // or 'isnet_fp16', 'isnet_quant' for smaller/faster variants
-        debug: false
-      }
-      console.log(`Using local background removal models from: ${path.resolve(modelPath)}`)
+    // Use default bundled models from @imgly/background-removal-node package
+    this.bgRemovalConfig = {
+      model: 'medium', // 'small' (~40MB) or 'medium' (~80MB)
+      debug: false
     }
   }
   normalizeOutputFormat(format) {
@@ -171,21 +163,29 @@ class ImageService {
     // Convert file stream to buffer
     const inputBuffer = await fileData.toBuffer()
 
+    // Create a Blob with proper mime type for the background removal library
+    const inputBlob = new Blob([inputBuffer], { type: fileData.mimetype || 'image/png' })
+
+    // Configure background removal output based on requested output type
+    const bgConfig = {
+      ...this.bgRemovalConfig,
+      output: {
+        format: 'image/png',
+        quality: 0.8,
+        type: output === 'mask' ? 'mask' : 'foreground'
+      }
+    }
+
     // Run background removal using @imgly/background-removal-node
-    // Use local models if configured for faster performance
-    const blob = await removeBackground(inputBuffer, this.bgRemovalConfig)
+    const blob = await removeBackground(inputBlob, bgConfig)
 
     // Convert Blob to Buffer
     const arrayBuffer = await blob.arrayBuffer()
     let resultBuffer = Buffer.from(arrayBuffer)
 
     // Process with Sharp for additional transformations
+    // Note: When output is 'mask', the library already returns a grayscale mask
     let pipeline = sharp(resultBuffer)
-
-    if (output === 'mask') {
-      // Extract alpha channel as grayscale mask
-      pipeline = pipeline.extractChannel('alpha')
-    }
 
     // Apply feathering (blur the alpha channel edges)
     if (feather && feather > 0 && output !== 'mask') {

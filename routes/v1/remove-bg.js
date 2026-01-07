@@ -90,7 +90,7 @@ module.exports = async function (fastify, opts) {
     } catch (error) {
       if (error.statusCode) throw error
       fastify.log.error(error)
-      throw new Error('Failed to process image')
+      throw new Error(`Failed to process image: ${error.message}`)
     }
   })
 }
