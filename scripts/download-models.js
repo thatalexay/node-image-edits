@@ -6,6 +6,11 @@
  * This improves cold start performance and enables offline usage
  */
 
+if (process.env.SKIP_MODEL_DOWNLOAD === '1') {
+  console.log('↪ Skipping model download (SKIP_MODEL_DOWNLOAD=1)')
+  process.exit(0)
+}
+
 const fs = require('fs')
 const path = require('path')
 const https = require('https')

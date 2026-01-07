@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: node-image-edits
+    env: node
+    plan: starter
+    autoDeploy: true
+    buildCommand: npm install --build-from-source
+    startCommand: npx fastify start -l info -p $PORT app.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: API_KEYS
+        sync: false
+      - key: SKIP_MODEL_DOWNLOAD
+        value: "1"
+      - key: SOURCE_CODE_URL
+        value: https://github.com/thatalexay/node-image-editing
+      - key: MAX_FILE_SIZE
+        value: 10485760
+      - key: RATE_LIMIT_MAX
+        value: 100
+      - key: RATE_LIMIT_TIMEWINDOW
+        value: 1 minute
+    aptPackages:
+      - libvips-dev
+      - libheif-dev

@@ -21,7 +21,7 @@ This package (resize, crop, remove background) designed for always-on Node.js de
 pnpm install
 ```
 
-**Note:** AI models for background removal (~50MB) will download automatically during installation. This is a one-time setup.
+**Note:** The `download-models` script runs during install to fetch AI models (~50MB). Set `SKIP_MODEL_DOWNLOAD=1` to skip this (recommended on Render), since the package already ships its assets locally in `node_modules`.
 
 ### Configuration
 
@@ -38,6 +38,7 @@ cp .env.example .env
 - `BG_REMOVAL_MODEL_PATH` - Path to local AI models (default: `./models`)
 - `PORT` - Server port (default: `3000`)
 - `MAX_FILE_SIZE` - Max upload size in bytes (default: `10485760` / 10MB)
+- `SKIP_MODEL_DOWNLOAD` - Set to `1` to skip postinstall model download
 
 ### Development
 
@@ -55,7 +56,7 @@ pnpm start
 
 ### Download Models Manually (Optional)
 
-If models didn't download during installation:
+Only needed if you want to self-host the background removal assets instead of using the packaged files in `node_modules/@imgly/background-removal-node/dist`. If install download was skipped, you can also run this manually.
 
 ```bash
 pnpm run download-models
@@ -97,12 +98,12 @@ All image endpoints require `X-Api-Key` header.
 Resize an image.
 
 **Request:** `multipart/form-data`
-- `file` (required): Image file
+- `file` (required): Image file (`jpg`, `png`, `webp`, `heic`)
 - `width` (optional): Target width in pixels
 - `height` (optional): Target height in pixels
 - `fit` (optional): Fit mode - `cover`, `contain`, `fill`, `inside`, `outside` (default: `inside`)
-- `format` (optional): Output format - `png`, `jpeg`, `webp`
-- `quality` (optional): JPEG/WebP quality (1-100)
+- `format` (optional): Output format - `jpg`
+- `quality` (optional): JPEG quality (1-100)
 - `background` (optional): Background color hex (e.g., `#ffffff`)
 
 **Response:** Resized image (binary)
@@ -122,7 +123,7 @@ curl -X POST http://localhost:3001/v1/resize \
 Crop an image.
 
 **Request:** `multipart/form-data`
-- `file` (required): Image file
+- `file` (required): Image file (`jpg`, `png`, `webp`, `heic`)
 - Rectangle crop (all required if using):
   - `x`: Left position
   - `y`: Top position
@@ -131,8 +132,8 @@ Crop an image.
 - Aspect crop (alternative to rectangle):
   - `aspect`: Aspect ratio (e.g., `16:9`, `1:1`, `4:5`)
   - `gravity`: Crop gravity - `center`, `north`, `south`, `east`, `west` (default: `center`)
-- `format` (optional): Output format - `png`, `jpeg`, `webp`
-- `quality` (optional): JPEG/WebP quality (1-100)
+- `format` (optional): Output format - `jpg`
+- `quality` (optional): JPEG quality (1-100)
 
 **Response:** Cropped image (binary)
 
@@ -162,9 +163,9 @@ curl -X POST http://localhost:3001/v1/crop \
 Remove image background using AI.
 
 **Request:** `multipart/form-data`
-- `file` (required): Image file
-- `output` (optional): Output type - `image` (cutout with transparency), `mask` (grayscale mask) (default: `image`)
-- `format` (optional): Output format - `png`, `webp` (default: `png`)
+- `file` (required): Image file (`jpg`, `png`, `webp`, `heic`)
+- `output` (optional): Output type - `image` (cutout on filled background), `mask` (grayscale mask) (default: `image`)
+- `format` (optional): Output format - `jpg` (default: `jpg`)
 - `feather` (optional): Edge feathering amount (0-10) for smoother edges
 - `threshold` (optional): Mask threshold cutoff (0-255) for binary mask
 
@@ -176,21 +177,21 @@ Remove image background using AI.
 curl -X POST http://localhost:3001/v1/remove-bg \
   -H "X-Api-Key: test-api-key-123" \
   -F "file=@input.jpg" \
-  --output output.png
+  --output output.jpg
 
 # With feathering for smooth edges
 curl -X POST http://localhost:3001/v1/remove-bg \
   -H "X-Api-Key: test-api-key-123" \
   -F "file=@input.jpg" \
   -F "feather=3" \
-  --output output-smooth.png
+  --output output-smooth.jpg
 
 # Get mask only
 curl -X POST http://localhost:3001/v1/remove-bg \
   -H "X-Api-Key: test-api-key-123" \
   -F "file=@input.jpg" \
   -F "output=mask" \
-  --output mask.png
+  --output mask.jpg
 ```
 
 **Note:** First request may take 5-10 seconds as AI models load into memory. Subsequent requests are faster (2-5 seconds).
@@ -236,6 +237,7 @@ Environment variables:
 | `RATE_LIMIT_TIMEWINDOW` | Rate limit time window | `1 minute` |
 | `PORT` | Server port | `3000` |
 | `LOG_LEVEL` | Logging level | `info` |
+| `SKIP_MODEL_DOWNLOAD` | Skip postinstall model download | (unset) |
 
 ## Development
 
@@ -247,7 +249,7 @@ node-image-edits/
 ├── package.json             # Dependencies
 ├── .env.example             # Environment template
 ├── api-spec.yaml            # OpenAPI specification
-├── models/                  # AI models (auto-downloaded)
+├── models/                  # AI models (optional, downloaded via script)
 │   ├── isnet.onnx          # Background removal model
 │   ├── isnet_fp16.onnx     # Half-precision variant
 │   └── isnet_quant.onnx    # Quantized variant
@@ -295,9 +297,8 @@ This service is designed for always-on deployment platforms like:
    - Other variables as needed
 
 2. **Deploy the repository**
-   - AI models (~50MB) will download automatically during build via `postinstall` hook
-   - First deployment may take 2-3 minutes due to model download
-   - Models persist between deployments if storage is mounted
+   - On Render, set `SKIP_MODEL_DOWNLOAD=1` to avoid TLS download failures during build
+   - If you allow downloads, first deploy may take 2-3 minutes due to model download
 
 3. **Health check**
    - Use `/health` endpoint for readiness checks
@@ -308,7 +309,7 @@ This service is designed for always-on deployment platforms like:
 pnpm install
 ```
 
-The `postinstall` hook automatically runs `pnpm run download-models` to fetch AI models.
+The `postinstall` hook runs `pnpm run download-models` to fetch AI models unless `SKIP_MODEL_DOWNLOAD=1` is set.
 
 ## License
 
