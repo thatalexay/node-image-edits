@@ -46,6 +46,7 @@ jspm_packages/
 models/
 *.onnx
 
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
@@ -139,5 +140,8 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+# Test outputs
+test/outputs/
 
-test/assets/*
+# Test assets
+test/assets/

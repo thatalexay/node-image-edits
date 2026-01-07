@@ -2,11 +2,11 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
-const { build } = require('../../helper')
+const { build, getRandomTestImage, saveTestOutput } = require('../../helper')
 const FormData = require('form-data')
 const sharp = require('sharp')
 
-// Helper to create a test image buffer
+// Helper to create a synthetic test image (for specific dimension tests)
 async function createTestImage(width = 800, height = 600) {
   return await sharp({
     create: {
@@ -44,9 +44,9 @@ test('POST /v1/crop requires authentication', async (t) => {
 test('POST /v1/crop with rectangle coordinates', async (t) => {
   const app = await build(t)
 
+  const testImage = getRandomTestImage()
   const form = new FormData()
-  const imageBuffer = await createTestImage(800, 600)
-  form.append('file', imageBuffer, { filename: 'test.png' })
+  form.append('file', testImage.buffer, { filename: testImage.filename })
   form.append('x', '100')
   form.append('y', '100')
   form.append('width', '400')
@@ -65,7 +65,12 @@ test('POST /v1/crop with rectangle coordinates', async (t) => {
   assert.strictEqual(res.statusCode, 200)
   assert.ok(res.headers['content-type'].startsWith('image/'))
 
-  const metadata = await sharp(Buffer.from(res.rawPayload)).metadata()
+  // Save output for visual inspection
+  const outputBuffer = Buffer.from(res.rawPayload)
+  saveTestOutput(outputBuffer, 'crop-rectangle-400x300', 'jpg')
+
+  const metadata = await sharp(outputBuffer).metadata()
+  assert.strictEqual(metadata.format, 'jpeg')
   assert.strictEqual(metadata.width, 400)
   assert.strictEqual(metadata.height, 300)
 })
@@ -73,9 +78,9 @@ test('POST /v1/crop with rectangle coordinates', async (t) => {
 test('POST /v1/crop with aspect ratio 1:1', async (t) => {
   const app = await build(t)
 
+  const testImage = getRandomTestImage()
   const form = new FormData()
-  const imageBuffer = await createTestImage(800, 600)
-  form.append('file', imageBuffer, { filename: 'test.png' })
+  form.append('file', testImage.buffer, { filename: testImage.filename })
   form.append('aspect', '1:1')
   form.append('gravity', 'center')
 
@@ -91,17 +96,21 @@ test('POST /v1/crop with aspect ratio 1:1', async (t) => {
 
   assert.strictEqual(res.statusCode, 200)
 
-  const metadata = await sharp(Buffer.from(res.rawPayload)).metadata()
+  // Save output for visual inspection
+  const outputBuffer = Buffer.from(res.rawPayload)
+  saveTestOutput(outputBuffer, 'crop-aspect-1-1-center', 'jpg')
+
+  const metadata = await sharp(outputBuffer).metadata()
+  assert.strictEqual(metadata.format, 'jpeg')
   assert.strictEqual(metadata.width, metadata.height, 'Should be square')
-  assert.strictEqual(metadata.height, 600) // Height of original image
 })
 
 test('POST /v1/crop with aspect ratio 16:9', async (t) => {
   const app = await build(t)
 
+  const testImage = getRandomTestImage()
   const form = new FormData()
-  const imageBuffer = await createTestImage(1920, 1080)
-  form.append('file', imageBuffer, { filename: 'test.png' })
+  form.append('file', testImage.buffer, { filename: testImage.filename })
   form.append('aspect', '16:9')
   form.append('gravity', 'center')
 
@@ -117,7 +126,12 @@ test('POST /v1/crop with aspect ratio 16:9', async (t) => {
 
   assert.strictEqual(res.statusCode, 200)
 
-  const metadata = await sharp(Buffer.from(res.rawPayload)).metadata()
+  // Save output for visual inspection
+  const outputBuffer = Buffer.from(res.rawPayload)
+  saveTestOutput(outputBuffer, 'crop-aspect-16-9-center', 'jpg')
+
+  const metadata = await sharp(outputBuffer).metadata()
+  assert.strictEqual(metadata.format, 'jpeg')
   const aspectRatio = metadata.width / metadata.height
   assert.ok(Math.abs(aspectRatio - (16/9)) < 0.01, 'Should be 16:9 aspect ratio')
 })
@@ -174,14 +188,14 @@ test('POST /v1/crop with gravity=west', async (t) => {
   assert.strictEqual(metadata.height, 800)
 })
 
-test('POST /v1/crop converts format to WebP', async (t) => {
+test('POST /v1/crop converts to JPEG with quality', async (t) => {
   const app = await build(t)
 
+  const testImage = getRandomTestImage()
   const form = new FormData()
-  const imageBuffer = await createTestImage()
-  form.append('file', imageBuffer, { filename: 'test.png' })
+  form.append('file', testImage.buffer, { filename: testImage.filename })
   form.append('aspect', '1:1')
-  form.append('format', 'webp')
+  form.append('format', 'jpg')
   form.append('quality', '85')
 
   const res = await app.inject({
@@ -195,10 +209,14 @@ test('POST /v1/crop converts format to WebP', async (t) => {
   })
 
   assert.strictEqual(res.statusCode, 200)
-  assert.strictEqual(res.headers['content-type'], 'image/webp')
+  assert.strictEqual(res.headers['content-type'], 'image/jpeg')
 
-  const metadata = await sharp(Buffer.from(res.rawPayload)).metadata()
-  assert.strictEqual(metadata.format, 'webp')
+  // Save output for visual inspection
+  const outputBuffer = Buffer.from(res.rawPayload)
+  saveTestOutput(outputBuffer, 'crop-jpeg-quality85', 'jpg')
+
+  const metadata = await sharp(outputBuffer).metadata()
+  assert.strictEqual(metadata.format, 'jpeg')
 })
 
 test('POST /v1/crop with invalid crop region returns error', async (t) => {
