@@ -82,9 +82,9 @@ Source code disclosure (AGPL compliance).
 ```json
 {
   "name": "node-image-editing",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "commit": "abc1234",
-  "source": "https://github.com/your-org/node-image-editing",
+  "source": "https://github.com/thatalexay/node-image-editing",
   "license": "AGPL-3.0-or-later"
 }
 ```
