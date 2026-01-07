@@ -53,7 +53,7 @@ module.exports = async function (fastify, opts) {
       }
 
       // Validate format
-      const validFormats = ['png', 'jpeg', 'webp']
+      const validFormats = ['jpg']
       if (format && !validFormats.includes(format)) {
         throw fastify.httpErrors.createError(400, `Invalid format. Must be one of: ${validFormats.join(', ')}`)
       }
@@ -70,22 +70,21 @@ module.exports = async function (fastify, opts) {
 
       // Validate file type
       const mimeType = data.mimetype
-      if (!mimeType || !mimeType.startsWith('image/')) {
-        throw fastify.httpErrors.createError(415, 'File must be an image')
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+      if (!mimeType || !allowedMimeTypes.includes(mimeType)) {
+        throw fastify.httpErrors.createError(415, 'File must be an image (jpg, png, webp, heic)')
       }
 
       // Process the image
       const result = await imageService.removeBackground(data, {
         output,
-        format,
+        format: format || 'jpg',
         feather,
         threshold
       })
 
       // Set appropriate content type
-      // Default to PNG for transparency support
-      const outputFormat = format || 'png'
-      reply.type(`image/${outputFormat}`)
+      reply.type('image/jpeg')
 
       return result.buffer
     } catch (error) {

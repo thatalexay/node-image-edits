@@ -88,7 +88,7 @@ module.exports = async function (fastify, opts) {
       }
 
       // Validate output format
-      const validFormats = ['png', 'jpeg', 'webp']
+      const validFormats = ['jpg']
       if (format && !validFormats.includes(format)) {
         throw fastify.httpErrors.createError(400, `Invalid format. Must be one of: ${validFormats.join(', ')}`)
       }
@@ -99,8 +99,9 @@ module.exports = async function (fastify, opts) {
 
       // Validate file type
       const mimeType = data.mimetype
-      if (!mimeType || !mimeType.startsWith('image/')) {
-        throw fastify.httpErrors.createError(415, 'File must be an image')
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+      if (!mimeType || !allowedMimeTypes.includes(mimeType)) {
+        throw fastify.httpErrors.createError(415, 'File must be an image (jpg, png, webp, heic)')
       }
 
       // Process the image
@@ -111,14 +112,12 @@ module.exports = async function (fastify, opts) {
         height,
         aspect,
         gravity,
-        format,
+        format: format || 'jpg',
         quality
       })
 
       // Set appropriate content type
-      const outputFormat = format || (mimeType.includes('png') ? 'png' :
-                                      mimeType.includes('webp') ? 'webp' : 'jpeg')
-      reply.type(`image/${outputFormat}`)
+      reply.type('image/jpeg')
 
       return result.buffer
     } catch (error) {

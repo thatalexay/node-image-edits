@@ -23,6 +23,11 @@ class ImageService {
       console.log(`Using local background removal models from: ${path.resolve(modelPath)}`)
     }
   }
+  normalizeOutputFormat(format) {
+    if (!format) return 'jpeg'
+    if (format === 'jpg' || format === 'jpeg') return 'jpeg'
+    return format
+  }
   /**
    * Resize an image
    * @param {Object} fileData - Multipart file data
@@ -31,6 +36,7 @@ class ImageService {
    */
   async resize(fileData, options) {
     const { width, height, fit = 'inside', format, quality, background } = options
+    const outputFormat = this.normalizeOutputFormat(format)
 
     // Convert file stream to buffer
     const inputBuffer = await fileData.toBuffer()
@@ -54,12 +60,14 @@ class ImageService {
     pipeline = pipeline.resize(resizeOptions)
 
     // Apply output format
-    if (format === 'jpeg') {
+    if (outputFormat === 'jpeg') {
       pipeline = pipeline.jpeg({ quality: quality || 80 })
-    } else if (format === 'webp') {
+    } else if (outputFormat === 'webp') {
       pipeline = pipeline.webp({ quality: quality || 80 })
-    } else if (format === 'png') {
+    } else if (outputFormat === 'png') {
       pipeline = pipeline.png()
+    } else {
+      pipeline = pipeline.jpeg({ quality: quality || 80 })
     }
 
     // Process and return
@@ -77,6 +85,7 @@ class ImageService {
    */
   async crop(fileData, options) {
     const { x, y, width, height, aspect, gravity = 'center', format, quality } = options
+    const outputFormat = this.normalizeOutputFormat(format)
 
     // Convert file stream to buffer
     const inputBuffer = await fileData.toBuffer()
@@ -132,12 +141,14 @@ class ImageService {
     }
 
     // Apply output format
-    if (format === 'jpeg') {
+    if (outputFormat === 'jpeg') {
       pipeline = pipeline.jpeg({ quality: quality || 80 })
-    } else if (format === 'webp') {
+    } else if (outputFormat === 'webp') {
       pipeline = pipeline.webp({ quality: quality || 80 })
-    } else if (format === 'png') {
+    } else if (outputFormat === 'png') {
       pipeline = pipeline.png()
+    } else {
+      pipeline = pipeline.jpeg({ quality: quality || 80 })
     }
 
     // Process and return
@@ -155,6 +166,7 @@ class ImageService {
    */
   async removeBackground(fileData, options) {
     const { output = 'image', format, feather, threshold } = options
+    const outputFormat = this.normalizeOutputFormat(format)
 
     // Convert file stream to buffer
     const inputBuffer = await fileData.toBuffer()
@@ -206,14 +218,13 @@ class ImageService {
     }
 
     // Apply output format
-    if (format === 'jpeg') {
+    if (outputFormat === 'jpeg') {
       // JPEG doesn't support transparency, flatten with white background
       pipeline = pipeline.flatten({ background: '#ffffff' }).jpeg({ quality: 80 })
-    } else if (format === 'webp') {
+    } else if (outputFormat === 'webp') {
       pipeline = pipeline.webp({ quality: 80 })
     } else {
-      // Default to PNG for transparency support
-      pipeline = pipeline.png()
+      pipeline = pipeline.flatten({ background: '#ffffff' }).jpeg({ quality: 80 })
     }
 
     const buffer = await pipeline.toBuffer()
