@@ -87,7 +87,7 @@ components:
       enum: [cover, contain, fill, inside, outside]
     OutputFormat:
       type: string
-      enum: [png, jpeg, webp]
+      enum: [jpg]
 
     RemoveBgOutput:
       type: string
@@ -197,7 +197,7 @@ paths:
       summary: Resize an image
       description: >
         Resizes an image. If only one of width/height is provided, aspect ratio is preserved.
-        Defaults to fit=inside and output format = input format.
+        Defaults to fit=inside and output format = jpg.
       requestBody:
         required: true
         content:
@@ -209,6 +209,7 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: Accepted input formats: jpg, png, webp, heic.
                 width:
                   type: integer
                   minimum: 1
@@ -225,7 +226,7 @@ paths:
                   type: integer
                   minimum: 1
                   maximum: 100
-                  description: JPEG/WebP quality.
+                  description: JPEG quality.
                 background:
                   type: string
                   description: Background color hex (e.g. #ffffff) used for formats without alpha when needed.
@@ -239,15 +240,7 @@ paths:
             X-Request-Id:
               $ref: "#/components/headers/XRequestId"
           content:
-            image/png:
-              schema:
-                type: string
-                format: binary
             image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/webp:
               schema:
                 type: string
                 format: binary
@@ -280,6 +273,7 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: Accepted input formats: jpg, png, webp, heic.
 
                 # Rect crop
                 x:
@@ -321,15 +315,7 @@ paths:
             X-Request-Id:
               $ref: "#/components/headers/XRequestId"
           content:
-            image/png:
-              schema:
-                type: string
-                format: binary
             image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/webp:
               schema:
                 type: string
                 format: binary
@@ -349,8 +335,8 @@ paths:
       tags: [image]
       summary: Remove image background
       description: >
-        Removes the background and returns either (a) a cutout image with transparency or
-        (b) a grayscale mask. Default output is a PNG cutout.
+        Removes the background and returns either (a) a cutout image on a filled background or
+        (b) a grayscale mask. Default output is a JPG cutout.
       requestBody:
         required: true
         content:
@@ -362,6 +348,7 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: Accepted input formats: jpg, png, webp, heic.
                 output:
                   $ref: "#/components/schemas/RemoveBgOutput"
                 format:
@@ -385,11 +372,7 @@ paths:
             X-Request-Id:
               $ref: "#/components/headers/XRequestId"
           content:
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/webp:
+            image/jpeg:
               schema:
                 type: string
                 format: binary
