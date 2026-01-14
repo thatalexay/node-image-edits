@@ -2,6 +2,8 @@
 
 const sharp = require('sharp')
 const { removeBackground } = require('@imgly/background-removal-node')
+const { Vibrant } = require('node-vibrant/node')
+const namer = require('color-namer')
 
 /**
  * Image Processing Service
@@ -231,6 +233,81 @@ class ImageService {
     const info = await sharp(buffer).metadata()
 
     return { buffer, info }
+  }
+
+  /**
+   * Extract prominent colors from an image and convert to color names
+   * @param {Object} fileData - Multipart file data
+   * @param {Object} options - Color extraction options
+   * @returns {Promise<{colors: string[], palette: Object}>}
+   */
+  async extractColors(fileData, options = {}) {
+    const { maxColors = 3, multicolorThreshold = 0.20 } = options
+
+    // Convert file stream to buffer
+    const inputBuffer = await fileData.toBuffer()
+
+    // Resize image to 200x200 for faster color extraction
+    const resizedBuffer = await sharp(inputBuffer)
+      .resize(200, 200, { fit: 'inside' })
+      .toBuffer()
+
+    // Extract color palette using node-vibrant
+    const palette = await Vibrant.from(resizedBuffer).getPalette()
+
+    // Convert palette to array and sort by population (prominence)
+    const swatches = Object.entries(palette)
+      .filter(([_, swatch]) => swatch !== null)
+      .map(([name, swatch]) => ({
+        name,
+        hex: swatch.hex,
+        population: swatch.population,
+        rgb: swatch.rgb
+      }))
+      .sort((a, b) => b.population - a.population)
+      .slice(0, maxColors)
+
+    if (swatches.length === 0) {
+      return { colors: [], palette: {} }
+    }
+
+    // Convert hex colors to color names using color-namer (basic palette)
+    const colorNames = swatches.map(swatch => {
+      const result = namer(swatch.hex, { pick: ['basic'] })
+      return result.basic[0].name
+    })
+
+    // Remove duplicates while preserving order
+    const uniqueColorNames = [...new Set(colorNames)]
+
+    // Calculate total population
+    const totalPopulation = swatches.reduce((sum, s) => sum + s.population, 0)
+
+    // Check if colors are relatively similar in prominence (multicolor detection)
+    // If we have 3+ colors and each represents at least multicolorThreshold of total, add "multicolor"
+    const isMulticolor = swatches.length >= 3 &&
+      swatches.every(swatch => (swatch.population / totalPopulation) >= multicolorThreshold)
+
+    const finalColors = [...uniqueColorNames]
+    if (isMulticolor && !finalColors.includes('multicolor')) {
+      finalColors.push('multicolor')
+    }
+
+    // Return color names and detailed palette info
+    return {
+      colors: finalColors,
+      palette: {
+        swatches: swatches.map(s => ({
+          hex: s.hex,
+          rgb: s.rgb,
+          colorName: namer(s.hex, { pick: ['basic'] }).basic[0].name,
+          population: s.population,
+          percentage: Math.round((s.population / totalPopulation) * 100)
+        })),
+        totalPopulation,
+        isMulticolor
+      }
+    }
   }
 }
 

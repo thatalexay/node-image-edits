@@ -1,7 +1,7 @@
 {
   "name": "node-image-editing",
-  "version": "0.1.0",
-  "description": "Phase 1 image operations service (resize, crop, remove background) designed for always-on Node.js deployment",
+  "version": "0.1.1",
+  "description": "Image operations service designed for always-on Node.js deployment",
   "main": "app.js",
   "directories": {
     "test": "test"
@@ -33,10 +33,12 @@
     "@fastify/rate-limit": "^10.0.0",
     "@fastify/sensible": "^6.0.0",
     "@imgly/background-removal-node": "^1.4.5",
+    "color-namer": "^1.4.0",
     "dotenv": "^16.4.0",
     "fastify": "^5.0.0",
     "fastify-cli": "^7.4.1",
     "fastify-plugin": "^5.0.0",
+    "node-vibrant": "^4.0.3",
     "sharp": "^0.34.5"
   },
   "devDependencies": {

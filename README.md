@@ -9,6 +9,10 @@ This package (resize, crop, remove background) designed for always-on Node.js de
   - Returns cutout with transparency or grayscale mask
   - Edge feathering and threshold controls
   - Local model hosting for faster performance
+- **Color Extraction**: Extract prominent colors from images as human-readable color names
+  - Returns up to 3 most prominent colors with standardized names (red, blue, green, etc.)
+  - Automatic multicolor detection for products with multiple equally prominent colors
+  - Perfect for product tagging and categorization
 - **API Key Authentication**: Secure endpoints with X-Api-Key header
 - **Rate Limiting**: Built-in rate limiting to prevent abuse
 - **AGPL Compliance**: Source code disclosure via `/source` endpoint and `X-Source-Code` header
@@ -196,6 +200,69 @@ curl -X POST http://localhost:3001/v1/remove-bg \
 
 **Note:** First request may take 5-10 seconds as AI models load into memory. Subsequent requests are faster (2-5 seconds).
 
+#### POST /v1/extract-colors
+Extract prominent colors from an image and convert them to standardized color names.
+
+**Request:** `multipart/form-data`
+- `file` (required): Image file (`jpg`, `png`, `webp`, `heic`)
+- `maxColors` (optional): Maximum number of colors to extract (1-10, default: `3`)
+- `multicolorThreshold` (optional): Threshold for multicolor detection (0-1, default: `0.20`)
+  - If colors are more evenly distributed than this threshold, adds "multicolor" tag
+
+**Response:** JSON
+```json
+{
+  "colors": ["red", "blue", "multicolor"],
+  "palette": {
+    "swatches": [
+      {
+        "hex": "#fc0404",
+        "rgb": [252, 4, 4],
+        "colorName": "red",
+        "population": 12500,
+        "percentage": 45
+      },
+      {
+        "hex": "#0404fc",
+        "rgb": [4, 4, 252],
+        "colorName": "blue",
+        "population": 10000,
+        "percentage": 36
+      }
+    ],
+    "totalPopulation": 27777,
+    "isMulticolor": true
+  }
+}
+```
+
+**Examples:**
+```bash
+# Basic color extraction
+curl -X POST http://localhost:3001/v1/extract-colors \
+  -H "X-Api-Key: test-api-key-123" \
+  -F "file=@product.jpg"
+
+# Extract only top 2 colors
+curl -X POST http://localhost:3001/v1/extract-colors \
+  -H "X-Api-Key: test-api-key-123" \
+  -F "file=@product.jpg" \
+  -F "maxColors=2"
+
+# Adjust multicolor threshold
+curl -X POST http://localhost:3001/v1/extract-colors \
+  -H "X-Api-Key: test-api-key-123" \
+  -F "file=@product.jpg" \
+  -F "multicolorThreshold=0.30"
+```
+
+**Color Names:** The service uses a standardized set of 21 basic color names:
+- `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`
+- `black`, `white`, `gray`, `brown`, `tan`, `beige`
+- `cyan`, `magenta`, `violet`, `lime`, `olive`, `navy`, `teal`, `maroon`
+
+**Use Case:** Perfect for product categorization, search filters, and automatic tagging systems.
+
 ## Response Headers
 
 All responses include:
@@ -264,6 +331,7 @@ node-image-edits/
 │   ├── source.js           # Source disclosure (AGPL)
 │   └── v1/                 # v1 image operations
 │       ├── crop.js         # Crop endpoint
+│       ├── extract-colors.js # Color extraction endpoint
 │       ├── remove-bg.js    # Background removal (AI)
 │       └── resize.js       # Resize endpoint
 ├── scripts/                 # Utility scripts
@@ -322,6 +390,8 @@ This service makes its source code discoverable via the `/source` endpoint and `
 - **[Fastify](https://fastify.dev/)** - Fast and low overhead web framework
 - **[Sharp](https://sharp.pixelplumbing.com/)** - High-performance image processing
 - **[@imgly/background-removal-node](https://www.npmjs.com/package/@imgly/background-removal-node)** - AI-powered background removal
+- **[node-vibrant](https://www.npmjs.com/package/node-vibrant)** - Prominent color extraction from images
+- **[color-namer](https://www.npmjs.com/package/color-namer)** - Convert hex colors to human-readable color names
 - **OpenAPI 3.1** - API specification ([api-spec.yaml](./api-spec.yaml))
 
 ## Learn More
