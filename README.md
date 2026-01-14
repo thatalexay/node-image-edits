@@ -13,6 +13,11 @@ This package (resize, crop, remove background) designed for always-on Node.js de
   - Returns up to 3 most prominent colors with standardized names (red, blue, green, etc.)
   - Automatic multicolor detection for products with multiple equally prominent colors
   - Perfect for product tagging and categorization
+- **Clothing Classification**: AI-powered classification of clothing items into categories
+  - Classifies into 5 categories: tops, bottoms, shoes, outerwear, accessories
+  - Fast inference (~30-50ms after model loading)
+  - ~95% accuracy on fashion products (with trained model)
+  - Uses ONNX Runtime for cross-platform ML inference
 - **API Key Authentication**: Secure endpoints with X-Api-Key header
 - **Rate Limiting**: Built-in rate limiting to prevent abuse
 - **AGPL Compliance**: Source code disclosure via `/source` endpoint and `X-Source-Code` header
@@ -263,6 +268,42 @@ curl -X POST http://localhost:3001/v1/extract-colors \
 
 **Use Case:** Perfect for product categorization, search filters, and automatic tagging systems.
 
+#### POST /v1/classify-clothing
+Classify clothing items into categories using AI.
+
+**Request:** `multipart/form-data`
+- `file` (required): Image file (`jpg`, `png`, `webp`, `heic`)
+
+**Response:** JSON
+```json
+{
+  "category": "tops"
+}
+```
+
+**Categories:**
+- `tops` - T-shirts, shirts, blouses, sweaters
+- `bottoms` - Pants, jeans, skirts, shorts
+- `shoes` - Sneakers, boots, sandals, heels
+- `outerwear` - Jackets, coats, hoodies
+- `accessories` - Bags, hats, belts, scarves
+
+**Example:**
+```bash
+curl -X POST http://localhost:3001/v1/classify-clothing \
+  -H "X-Api-Key: test-api-key-123" \
+  -F "file=@product.jpg"
+```
+
+**Response:**
+```json
+{
+  "category": "tops"
+}
+```
+
+**Note:** First request may take 1-2 seconds as the AI model loads into memory. Subsequent requests are faster (~30-50ms). Requires ONNX model file at `./models/mobilenet-fashion-5cat.onnx` or configured via `CLASSIFICATION_MODEL_PATH`.
+
 ## Response Headers
 
 All responses include:
@@ -299,6 +340,7 @@ Environment variables:
 | `API_KEYS` | Comma-separated API keys | (required) |
 | `SOURCE_CODE_URL` | Source repository URL | `https://github.com/your-org/node-image-editing` |
 | `BG_REMOVAL_MODEL_PATH` | Path to local AI models | `./models` |
+| `CLASSIFICATION_MODEL_PATH` | Path to clothing classification ONNX model | `./models/mobilenet-fashion-5cat.onnx` |
 | `MAX_FILE_SIZE` | Max upload size in bytes | `10485760` (10MB) |
 | `RATE_LIMIT_MAX` | Max requests per time window | `100` |
 | `RATE_LIMIT_TIMEWINDOW` | Rate limit time window | `1 minute` |
@@ -330,6 +372,7 @@ node-image-edits/
 │   ├── health.js           # Health check endpoint
 │   ├── source.js           # Source disclosure (AGPL)
 │   └── v1/                 # v1 image operations
+│       ├── classify-clothing.js # Clothing classification endpoint (AI)
 │       ├── crop.js         # Crop endpoint
 │       ├── extract-colors.js # Color extraction endpoint
 │       ├── remove-bg.js    # Background removal (AI)
@@ -337,8 +380,61 @@ node-image-edits/
 ├── scripts/                 # Utility scripts
 │   └── download-models.js  # Model downloader
 ├── services/                # Business logic
+│   ├── classification-service.js # AI clothing classification (ONNX)
 │   └── image-service.js    # Image processing (Sharp + AI)
 └── test/                    # Tests
+```
+
+### Model Setup (Clothing Classification)
+
+The clothing classification endpoint requires an ONNX model file. The service will work without it but return an error message guiding you to add the model.
+
+**Model Requirements:**
+- Input: 224x224 RGB image tensor [1, 3, 224, 224] in NCHW format
+- Output: 5-class logits for categories (tops, bottoms, shoes, outerwear, accessories)
+- Format: ONNX (`.onnx` file)
+- Recommended: MobileNetV2 architecture (~14MB, 30-50ms inference)
+
+**Option A: Train Custom Model (Recommended)**
+
+1. **Prepare Dataset:** Use DeepFashion Category (~290k images) or Kaggle Fashion Product Images (~44k)
+2. **Train/Fine-tune:** Fine-tune MobileNetV2 on your 5 categories
+3. **Export to ONNX:**
+   ```python
+   import torch
+   import torch.onnx
+
+   # After training your PyTorch model
+   dummy_input = torch.randn(1, 3, 224, 224)
+   torch.onnx.export(
+       model,
+       dummy_input,
+       "mobilenet-fashion-5cat.onnx",
+       opset_version=13,
+       input_names=['input'],
+       output_names=['output']
+   )
+   ```
+4. **Place model:** Copy to `./models/mobilenet-fashion-5cat.onnx`
+
+**Option B: Use Existing ONNX Model**
+
+Search Hugging Face or ONNX Model Zoo for pre-trained fashion classification models and convert if needed.
+
+**Option C: Fashion-MNIST Prototype** (Not recommended for production)
+
+Quick prototype for testing architecture only. Fashion-MNIST is 28x28 grayscale and not suitable for real product photos.
+
+**Configuration:**
+
+Set the model path in `.env`:
+```bash
+CLASSIFICATION_MODEL_PATH=./models/mobilenet-fashion-5cat.onnx
+```
+
+Or use a different path:
+```bash
+CLASSIFICATION_MODEL_PATH=/path/to/your/model.onnx
 ```
 
 ### Testing
@@ -390,6 +486,7 @@ This service makes its source code discoverable via the `/source` endpoint and `
 - **[Fastify](https://fastify.dev/)** - Fast and low overhead web framework
 - **[Sharp](https://sharp.pixelplumbing.com/)** - High-performance image processing
 - **[@imgly/background-removal-node](https://www.npmjs.com/package/@imgly/background-removal-node)** - AI-powered background removal
+- **[onnxruntime-node](https://www.npmjs.com/package/onnxruntime-node)** - ONNX Runtime for AI model inference
 - **[node-vibrant](https://www.npmjs.com/package/node-vibrant)** - Prominent color extraction from images
 - **[color-namer](https://www.npmjs.com/package/color-namer)** - Convert hex colors to human-readable color names
 - **OpenAPI 3.1** - API specification ([api-spec.yaml](./api-spec.yaml))
