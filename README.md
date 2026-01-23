@@ -15,8 +15,8 @@ This package (resize, crop, remove background) designed for always-on Node.js de
   - Perfect for product tagging and categorization
 - **Clothing Classification**: AI-powered classification of clothing items into categories
   - Classifies into 5 categories: tops, bottoms, shoes, outerwear, accessories
-  - Fast inference (~30-50ms after model loading)
-  - ~95% accuracy on fashion products (with trained model)
+  - Inference: ~100-150ms (Python fallback) or ~30-50ms (native ONNX Runtime if supported)
+  - ~97% accuracy on fashion products (trained on 36K images)
   - Uses ONNX Runtime for cross-platform ML inference
 - **API Key Authentication**: Secure endpoints with X-Api-Key header
 - **Rate Limiting**: Built-in rate limiting to prevent abuse
@@ -302,7 +302,7 @@ curl -X POST http://localhost:3001/v1/classify-clothing \
 }
 ```
 
-**Note:** First request may take 1-2 seconds as the AI model loads into memory. Subsequent requests are faster (~30-50ms). Requires ONNX model file at `./models/mobilenet-fashion-5cat.onnx` or configured via `CLASSIFICATION_MODEL_PATH`.
+**Note:** First request may take 1-2 seconds as the AI model loads into memory. Subsequent requests are faster (~100-150ms with Python fallback). The service automatically falls back to Python subprocess if onnxruntime-node doesn't support the model's ONNX IR version. See [CLASSIFICATION.md](./CLASSIFICATION.md) for detailed setup instructions.
 
 ## Response Headers
 
@@ -341,6 +341,8 @@ Environment variables:
 | `SOURCE_CODE_URL` | Source repository URL | `https://github.com/your-org/node-image-editing` |
 | `BG_REMOVAL_MODEL_PATH` | Path to local AI models | `./models` |
 | `CLASSIFICATION_MODEL_PATH` | Path to clothing classification ONNX model | `./models/mobilenet-fashion-5cat.onnx` |
+| `PYTHON_CLASSIFIER_SCRIPT` | Path to Python classification script (fallback) | `../image-categorization/classify_image.py` |
+| `PYTHON_BIN` | Python binary path (auto-detects venv) | Auto-detect or `python3` |
 | `MAX_FILE_SIZE` | Max upload size in bytes | `10485760` (10MB) |
 | `RATE_LIMIT_MAX` | Max requests per time window | `100` |
 | `RATE_LIMIT_TIMEWINDOW` | Rate limit time window | `1 minute` |
@@ -387,56 +389,55 @@ node-image-edits/
 
 ### Model Setup (Clothing Classification)
 
-The clothing classification endpoint requires an ONNX model file. The service will work without it but return an error message guiding you to add the model.
+The clothing classification endpoint uses a MobileNetV2 ONNX model trained on fashion images. The service automatically handles ONNX compatibility through Python fallback.
+
+**See [CLASSIFICATION.md](./CLASSIFICATION.md) for complete setup instructions.**
+
+**Quick Setup:**
+
+1. **Train or download the ONNX model:**
+   ```bash
+   cd ../image-categorization
+   # Follow training instructions in README.md
+   # Achieves 97.13% accuracy on 36K images
+   ```
+
+2. **Copy model to service:**
+   ```bash
+   cp mobilenet-fashion-5cat.onnx ../node-image-edits/models/
+   ```
+
+3. **Setup Python environment (for fallback):**
+   ```bash
+   cd ../image-categorization
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install onnxruntime pillow numpy
+   ```
+
+**How It Works:**
+
+- The service first tries **onnxruntime-node** for native performance (~30-50ms)
+- If the model uses a newer ONNX IR version (IR v10), it automatically **falls back to Python subprocess** (~100-150ms)
+- The fallback uses Python `onnxruntime` which supports newer ONNX formats
+- No manual configuration needed - it auto-detects the best method
 
 **Model Requirements:**
 - Input: 224x224 RGB image tensor [1, 3, 224, 224] in NCHW format
 - Output: 5-class logits for categories (tops, bottoms, shoes, outerwear, accessories)
 - Format: ONNX (`.onnx` file)
-- Recommended: MobileNetV2 architecture (~14MB, 30-50ms inference)
-
-**Option A: Train Custom Model (Recommended)**
-
-1. **Prepare Dataset:** Use DeepFashion Category (~290k images) or Kaggle Fashion Product Images (~44k)
-2. **Train/Fine-tune:** Fine-tune MobileNetV2 on your 5 categories
-3. **Export to ONNX:**
-   ```python
-   import torch
-   import torch.onnx
-
-   # After training your PyTorch model
-   dummy_input = torch.randn(1, 3, 224, 224)
-   torch.onnx.export(
-       model,
-       dummy_input,
-       "mobilenet-fashion-5cat.onnx",
-       opset_version=13,
-       input_names=['input'],
-       output_names=['output']
-   )
-   ```
-4. **Place model:** Copy to `./models/mobilenet-fashion-5cat.onnx`
-
-**Option B: Use Existing ONNX Model**
-
-Search Hugging Face or ONNX Model Zoo for pre-trained fashion classification models and convert if needed.
-
-**Option C: Fashion-MNIST Prototype** (Not recommended for production)
-
-Quick prototype for testing architecture only. Fashion-MNIST is 28x28 grayscale and not suitable for real product photos.
+- Recommended: MobileNetV2 architecture (~271KB model file)
 
 **Configuration:**
 
 Set the model path in `.env`:
 ```bash
 CLASSIFICATION_MODEL_PATH=./models/mobilenet-fashion-5cat.onnx
-```
 
-Or use a different path:
-```bash
-CLASSIFICATION_MODEL_PATH=/path/to/your/model.onnx
+# Optional: Override Python fallback paths (auto-detected)
+# PYTHON_CLASSIFIER_SCRIPT=../image-categorization/classify_image.py
+# PYTHON_BIN=/path/to/venv/bin/python3
 ```
-
 ### Testing
 
 ```bash
@@ -486,7 +487,7 @@ This service makes its source code discoverable via the `/source` endpoint and `
 - **[Fastify](https://fastify.dev/)** - Fast and low overhead web framework
 - **[Sharp](https://sharp.pixelplumbing.com/)** - High-performance image processing
 - **[@imgly/background-removal-node](https://www.npmjs.com/package/@imgly/background-removal-node)** - AI-powered background removal
-- **[onnxruntime-node](https://www.npmjs.com/package/onnxruntime-node)** - ONNX Runtime for AI model inference
+- **[onnxruntime-node](https://www.npmjs.com/package/onnxruntime-node)** & **Python onnxruntime** - ONNX Runtime for AI model inference with automatic Python fallback
 - **[node-vibrant](https://www.npmjs.com/package/node-vibrant)** - Prominent color extraction from images
 - **[color-namer](https://www.npmjs.com/package/color-namer)** - Convert hex colors to human-readable color names
 - **OpenAPI 3.1** - API specification ([api-spec.yaml](./api-spec.yaml))
