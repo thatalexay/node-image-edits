@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# Development files
+.git/
+.gitignore
+.DS_Store
+*.md
+!README.md
+
+# Test files
+test/
+tests/
+*.test.js
+coverage/
+
+# Environment files (will be provided at runtime)
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Other
+render.yaml
+pricing-spec.md
+api-spec.yaml
+CLASSIFICATION.md
+test-bg-removal-resources.js
