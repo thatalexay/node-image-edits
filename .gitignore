@@ -42,9 +42,10 @@ build/Release
 node_modules/
 jspm_packages/
 
-# AI Models (downloaded automatically)
-models/
-*.onnx
+# Downloaded background removal models (large, auto-downloaded via download-models.js)
+models/isnet.onnx
+models/isnet_fp16.onnx
+models/isnet_quant.onnx
 
 
 # Snowpack dependency directory (https://snowpack.dev/)
