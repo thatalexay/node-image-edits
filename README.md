@@ -446,26 +446,19 @@ pnpm test
 
 ## Deployment
 
-This service is designed for always-on deployment platforms like:
-- **Render** Web Service
-- **Railway**
-- **Fly.io**
-- **Google Cloud Run**
-- **AWS ECS**
+**Production URL:** `https://img-api.wovon.app`
+
+Deployed on a Digital Ocean droplet behind Caddy (automatic HTTPS).
 
 ### Deployment Steps
 
-1. **Set environment variables** in your deployment platform:
+1. **Set environment variables** on the server:
    - `API_KEYS` (required)
    - `PORT` (optional, defaults to 3000)
    - `MAX_FILE_SIZE` (optional)
    - Other variables as needed
 
-2. **Deploy the repository**
-   - On Render, set `SKIP_MODEL_DOWNLOAD=1` to avoid TLS download failures during build
-   - If you allow downloads, first deploy may take 2-3 minutes due to model download
-
-3. **Health check**
+2. **Health check**
    - Use `/health` endpoint for readiness checks
    - First background removal request will load models into memory (~5-10 seconds)
 
