@@ -63,6 +63,8 @@ Server runs on [http://localhost:3001](http://localhost:3001) (configured in `.e
 pnpm start
 ```
 
+Wovon production URL: **`https://img-api.wovon.app`**. It runs on the same **Hetzner** dedicated host as `node-wovon-api` (`https://api.wovon.app`); SSH and Docker/Caddy deploy notes live in **`../node-wovon-api/README.md`**.
+
 ### Download Models Manually (Optional)
 
 Only needed if you want to self-host the background removal assets instead of using the packaged files in `node_modules/@imgly/background-removal-node/dist`. If install download was skipped, you can also run this manually.
